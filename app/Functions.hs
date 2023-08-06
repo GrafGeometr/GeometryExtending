@@ -8,6 +8,7 @@ import Data.Complex
 import RandomGen
 import Types
 import qualified Data.Map as Map
+import Debug.Trace (trace)
 
 
 
@@ -176,8 +177,8 @@ orthocenter :: Point -> Point -> Point -> Point
 orthocenter a b c = ((b - a) *. norm c + (c - b) *. norm a + (a - c) *. norm b + (a * a - b * b) * conj c + (b * b - c * c) * conj a + (c * c - a * a) * conj b) / 
             ((b - c) * conj a + (c - a) * conj b + (a - b) * conj c)
 
-functions' :: Map.Map String ([Shape] -> [Rand Shape])
-functions' = Map.fromList 
+functions :: Map.Map String ([Shape] -> [Rand Shape])
+functions = Map.fromList 
     [  (
         "Centroid", mkBuilder $ \a b c -> 
         [ rndPointOnLine $ line a $ (b + c) / 2
@@ -287,117 +288,6 @@ functions' = Map.fromList
     ]
 
 
-functions :: Map.Map String ([Point] -> [Rand Point])
-functions = Map.fromList
-    [  (
-        "Centroid", \[a, b, c] -> 
-        [ rndPointOnLine $ line a $ (b + c) / 2
-        , rndPointOnLine $ line b $ (a + c) / 2
-        , rndPointOnLine $ line c $ (a + b) / 2
-        , pure $ (a + b + c) / 3
-        ]
-    ), (
-        "Circumcenter", \[a, b, c] -> 
-        [ rndPointOnLine $ midline a b
-        , rndPointOnLine $ midline b c
-        , rndPointOnLine $ midline a c
-        , return $ circumcenter a b c
-        ]
-    ), (
-        "Excenter", \[b, a, c] ->
-        [ rndPointOnLine $ exbisector a b c
-        , rndPointOnLine $ bisector a c b
-        , rndPointOnLine $ bisector b a c
-        , return $ excenter a b c
-        ]
-    ), (
-        "Incenter", \[a, b, c] ->
-        [ rndPointOnLine $ bisector a b c
-        , rndPointOnLine $ bisector b a c
-        , rndPointOnLine $ bisector a c b
-        , rndPoint, return $ incenter a b c
-        ]
-    ), (
-        "IntersectionOfLinesFromPoints", \[a, b, c, d] ->
-        let l1 = line a b
-            l2 = line c d
-        in  [ rndPointOnLine l1
-            , rndPointOnLine l2
-            , return $ intersect l1 l2
-            ]
-    ), (
-        "IsoscelesTrapezoidPoint", \[a, b, c] ->
-        let m  = midline c b
-        in  [ rndPointOnLine $ parallel a (line b c)
-            , return $ symmetry a m
-            ]
-    ), (
-        "Midpoint", \[a, b] -> 
-        [ rndPointOnLine $ line a b
-        , return $ (a + b) / 2
-        ]
-    ), (
-        "MidpointOfArc", \[a, b, c] -> 
-        [ rndPointOnCircle $ circumcircle a b c
-        , return $ cintersect a (exbisector c a b) (circumcircle a b c)
-        ]
-    ), (
-        "MidpointOfOppositeArc", \[a, b, c] ->
-        [ rndPointOnCircle $ circumcircle a b c
-        , return $ cintersect a (bisector c a b) (circumcircle a b c)
-        ]
-    ), (
-        "OppositePointOnCircumcircle", \[a, b, c] ->
-        [ rndPointOnCircle $ circumcircle a b c
-        , return $ 2 * circumcenter a b c - a
-        ]
-    ), (
-        "Orthocenter", \[a, b, c] -> 
-        [ rndPointOnLine $ line a $ project a $ line b c
-        , rndPointOnLine $ line b $ project b $ line a c
-        , rndPointOnLine $ line c $ project c $ line a b
-        , return $ orthocenter a b c
-        ]
-    ), (
-        "ParallelogramPoint", \[a, b, c] ->
-        [ rndPointOnLine $ line a $ (b + c) / 2
-        , rndPointOnLine $ parallel b (line a c)
-        , rndPointOnLine $ parallel c (line a b)
-        , return $ b + c - a
-        ]
-    ), (
-        "PerpendicularProjectionOnLineFromPoints", \[a, b, c] ->
-        let l = line b c
-        in  [ rndPointOnLine l
-            , rndPointOnLine $ line a $ project a l
-            , return $ (a - (conj a * coef l +. free l) / (conj $ coef l)) / 2
-            ]
-    ), (
-        "PointReflection", \[a, b] -> 
-        [ rndPointOnLine $ line a b
-        , return $ 2 * b - a
-        ]
-    ), (
-        "ReflectionInLineFromPoints", \[a, b, c] -> 
-        [ rndPointOnLine $ line a $ project a $ line b c
-        , return $ symmetry a (line b c)
-        ]
-    ), (
-        "SecondIntersectionOfCircleAndLineFromPoints", \[a, b, c, d] -> 
-        [ rndPointOnCircle $ circumcircle a c d
-        , rndPointOnLine $ line a b
-        , return $ cintersect a (line a b) (circumcircle a c d)
-        ]
-    ), (
-        "SecondIntersectionOfTwoCircumcircles", \[a, b, c, d, e] -> 
-        [ rndPointOnCircle $ circumcircle a b c
-        , rndPointOnCircle $ circumcircle a d e
-        , return $ ccintersect a (circumcircle a b c) (circumcircle a d e)
-        ]
-    )
-    ]
-
-
 eps :: Double
 eps = 0.01
 
@@ -410,7 +300,8 @@ checkReal x = abs (im x) < eps || abs (im x) < eps * abs (re x)
 checkImagine :: Point -> Bool
 checkImagine x = abs (re x) < eps || abs (re x) < eps * abs (im x)
 
-
+checkEqPts :: Point -> Point -> Bool
+checkEqPts a b = checkEq (re a) (re b) && checkEq (im a) (im b)
 
 
 factCheckers :: Map.Map String ([Shape] -> Bool)
@@ -420,43 +311,39 @@ factCheckers = Map.fromList
     ), (
         "ConcyclicPoints", mkChecker $ \a b c d -> checkReal $ (a - b) * (d - c) * conj (b - c) * conj (a - d)
     ), (
-        "ConcurrentLines", mkChecker $ \a b c d e f ->
-        let l1 = line a b
-            l2 = line c d
-            t = intersect l1 l2
-        in  checkReal $ (e - t) * conj (f - t)
+        "ConcurrentLines", mkChecker $ \l1 l2 l3 ->
+        let t12 = intersect l1 l2
+            t13 = intersect l1 l3
+        in  checkEqPts t12 t13
     ), (
         "EqualLineSegments", mkChecker $ \a b c d -> checkEq (norm $ b - a) (norm $ d - c)
     ), (
-        "LineTangentToCircle", mkChecker $ \a b c d e ->
-        let l = line a b
-            cs = circumcircle c d e
-            p = center cs `project` l
+        "LineTangentToCircle", mkChecker $ \l cs ->
+        let p = center cs `project` l
         in  checkEq (norm $ p - center cs) (radiusSqr cs)
     ), (
-        "TangentCircles", mkChecker $ \a b c d e f ->
-        let c1 = circumcircle a b c
-            c2 = circumcircle d e f
-            r1sq = radiusSqr c1
+        "TangentCircles", mkChecker $ \c1 c2 ->
+        let r1sq = radiusSqr c1
             r2sq = radiusSqr c2
             ds = norm $ center c1 - center c2
         in  checkEq (sqrt r1sq + sqrt r2sq) ds
     ), (
-        "ParallelLines", mkChecker $ \a b c d -> checkReal $ (b - a) * (conj d - conj c)
+        "ParallelLines", mkChecker $ \l1 l2 -> checkReal $ coef l1 / coef l2
     ), (
-        "PerpendicularLines", mkChecker$  \a b c d -> checkImagine $ (b - a) * (conj d - conj c)
+        "PerpendicularLines", mkChecker$  \l1 l2 -> checkImagine $ coef l1 / coef l2
     )
     ]
 
 rndPointCmd :: String -> Command
 rndPointCmd s = Command s [] (const [toShape <$> rndPoint])
 
-anyPolygon :: [String] -> [Command]
-anyPolygon = fmap $ \n -> Command n [] (const [toShape <$> rndPoint])
-
 
 constPointCmd :: String -> Point -> Command
 constPointCmd s p = Command s [] (const [pure $ toShape p])
+
+
+anyPolygon :: [String] -> [Command]
+anyPolygon = fmap $ \n -> Command n [] (const [toShape <$> rndPoint])
 
 
 rightTriangle :: [String] -> [Command]
@@ -477,7 +364,7 @@ cyclicQuadrilateral [a, b, c, d] =
 initials :: Map.Map String ([String] -> [Command])
 initials = Map.fromList
     [ ("Triangle", anyPolygon)
-    , ("RightTriangle: ", rightTriangle)
+    , ("RightTriangle", rightTriangle)
     , ("LineSegment", anyPolygon)
     , ("Quadrilateral", anyPolygon)
     , ("CyclicQuadrilateral", cyclicQuadrilateral)

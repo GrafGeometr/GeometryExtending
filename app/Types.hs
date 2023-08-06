@@ -11,11 +11,14 @@ import RandomGen
 
 type Point = Complex Double
 
-data Line = Line { coef :: Complex Double, free :: Double}
 
-data Circle = Circle { center :: Point, radiusSqr :: Double}
+-- ~coef * z + coef * ~z + free = 0
+data Line = Line { coef :: Complex Double, free :: Double} deriving Show
 
-data Shape = PointShape Point | LineShape Line | CircleShape Circle
+data Circle = Circle { center :: Point, radiusSqr :: Double} deriving Show
+
+data Shape = PointShape Point | LineShape Line | CircleShape Circle deriving Show
+
 
 
 class IsShape a where
@@ -65,3 +68,9 @@ instance (IsShape a, Checker f) => Checker (a -> f) where
 data Command = Command { res :: String, args :: [String], action :: [Shape] -> [Rand Shape] }
 
 data Conclusion = Conclusion { arguments :: [String], factChecker :: [Shape] -> Bool }
+
+instance Show Command where
+    show (Command r as _) = "Command " <> r <> " " <> show as
+
+instance Show Conclusion where
+    show (Conclusion as _) = "Conclusion " <> show as

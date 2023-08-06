@@ -30,6 +30,12 @@ name' = skipMany (char '{' <|> char '[' <|> char '(') `between` skipMany (char '
 csvPts' :: Parser [String]
 csvPts' = name' `sepBy1` string ", "
 
+name'' :: Parser String
+name'' = many1 letter
+
+csvPts'' :: Parser [String]
+csvPts'' = name'' `sepBy1` string ", "
+
 getArgs :: Parser [String]
 getArgs = string "(" `between` string ")" $ csvPts 
 
@@ -48,15 +54,48 @@ commandParser = do
     void $ string " = "
     command <- many1 letter
     args <- getArgs
-    pure $ Command newPoint args $ functions' Map.! command
+    pure $ Command newPoint args $ functions Map.! command
 
+data ConclusionParseObj = Obj String | MkLine [String] | MkCircle [String] deriving Show
+
+toArgs :: ConclusionParseObj -> [String]
+toArgs (Obj s) = [s]
+toArgs (MkLine s) = s
+toArgs (MkCircle s) = s
+
+conclObj :: Parser ConclusionParseObj
+conclObj = do
+    objName <- many1 letter
+    pure $ Obj objName
+
+conclLine :: Parser ConclusionParseObj
+conclLine = do
+    void $ char '['
+    points <- csvPts''
+    void $ char ']'
+    pure $ MkLine points
+
+conclCircle :: Parser ConclusionParseObj
+conclCircle = do
+    void $ char '('
+    points <- csvPts''
+    void $ char ')'
+    pure $ MkCircle points
+
+convertFromSimple :: [ConclusionParseObj] -> [Shape] -> [Shape]
+convertFromSimple [] _ = []
+convertFromSimple (Obj _ : xs) (shp:shps) = shp : convertFromSimple xs shps
+convertFromSimple (MkLine _ : xs) ((PointShape p1):(PointShape p2):shps) = LineShape (line p1 p2) : convertFromSimple xs shps
+convertFromSimple (MkCircle _ : xs) ((PointShape p1):(PointShape p2):(PointShape p3):shps) = CircleShape (circumcircle p1 p2 p3) : convertFromSimple xs shps
 
 conclusionParser :: Parser Conclusion
 conclusionParser = do
     factName <- name
     void $ string ": "
-    points <- csvPts'
-    pure $ Conclusion points $ factCheckers Map.! factName
+    objects <- (conclObj <|> conclLine <|> conclCircle) `sepBy1` string ", "
+
+    let points = concat $ toArgs <$> objects
+    pure $ Conclusion points $ (factCheckers Map.! factName) . (convertFromSimple objects)
 
 theoremParser :: Parser ([Command], Conclusion)
 theoremParser = do

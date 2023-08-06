@@ -20,7 +20,7 @@ main = do
         ".geo" `isSuffixOf` s) $ files) $ \file -> do
         let arg = dir <> file
         s <- readFile arg
-        putStrLn $ "    Started: " <> file
+        putStrLn $ "   !Started: " <> file
         case parseTheorem file $ unlines . fmap tail . filter ("!" `isPrefixOf`) . lines $ s of
             Left err -> print err
             Right (cs, cc) -> do
