@@ -48,7 +48,7 @@ commandParser = do
     void $ string " = "
     command <- many1 letter
     args <- getArgs
-    pure $ Command newPoint args $ functions Map.! command
+    pure $ Command newPoint args $ functions' Map.! command
 
 
 conclusionParser :: Parser Conclusion
@@ -77,5 +77,5 @@ theoremParser = do
     replicateM_ 5 $ skipMany (satisfy (/= '\n')) >> char '\n'
     pure (construction <> commands, conclusion)
 
-parseThrorem :: SourceName -> String -> Either ParseError ([Command], Conclusion)
-parseThrorem = parse (theoremParser <* eof)
+parseTheorem :: SourceName -> String -> Either ParseError ([Command], Conclusion)
+parseTheorem = parse (theoremParser <* eof)

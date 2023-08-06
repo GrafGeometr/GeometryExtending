@@ -11,19 +11,19 @@ import qualified Data.Map as Map
 import Control.Monad (replicateM)
 
 
-getPts :: Map.Map String Point -> [String] -> [Point]
-getPts m args = fmap (m Map.!) args
+getShps :: Map.Map String Shape -> [String] -> [Shape]
+getShps m args = fmap (m Map.!) args
 
 
 
-checkFinal :: Map.Map String Point -> [Command] -> Conclusion -> Rand Bool
-checkFinal m [] (Conclusion x f) = pure . not . f $ getPts m x
-checkFinal m (Command r x f : xs) c = last (f $ getPts m x) >>= \h -> checkFinal (Map.insert r h m) xs c
+checkFinal :: Map.Map String Shape -> [Command] -> Conclusion -> Rand Bool
+checkFinal m [] (Conclusion x f) = pure . not . f $ getShps m x
+checkFinal m (Command r x f : xs) c = last (f $ getShps m x) >>= \h -> checkFinal (Map.insert r h m) xs c
 
-check :: Map.Map String Point -> [Command] -> Conclusion -> Rand Bool
-check m [] (Conclusion x f) = if f $ getPts m x then pure True else trace "Theorem check failed" $ pure True
+check :: Map.Map String Shape -> [Command] -> Conclusion -> Rand Bool
+check m [] (Conclusion x f) = if f $ getShps m x then pure True else trace "Theorem check failed" $ pure True
 check m (Command r x f : xs) c = do
-    ps <- sequence (f $ getPts m x)
+    ps <- sequence (f $ getShps m x)
     ys <- traverse (\p -> checkFinal (Map.insert r p m) xs c) $ init ps
     y <- check (Map.insert r (last ps) m) xs c
     return $ and ys && y

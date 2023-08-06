@@ -1,6 +1,6 @@
 module Main where
 
-import Parser (parseThrorem)
+import Parser (parseTheorem)
 import System.Environment (getArgs)
 import RandomGen (runRand)
 import Extending
@@ -21,7 +21,7 @@ main = do
         let arg = dir <> file
         s <- readFile arg
         putStrLn $ "    Started: " <> file
-        case parseThrorem file $ unlines . fmap tail . filter ("!" `isPrefixOf`) . lines $ s of
+        case parseTheorem file $ unlines . fmap tail . filter ("!" `isPrefixOf`) . lines $ s of
             Left err -> print err
             Right (cs, cc) -> do
                 res <- runRand $ check5 cs cc
