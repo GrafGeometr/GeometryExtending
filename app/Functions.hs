@@ -9,6 +9,7 @@ import RandomGen
 import Types
 import qualified Data.Map as Map
 import Debug.Trace (trace)
+import Data.Functor ((<&>))
 
 
 
@@ -90,7 +91,14 @@ line.function("parallel", point, line) { a, l ->
 parallel :: Point -> Line -> Line
 parallel a l = Line (coef l) $ - re (conj a * coef l) * 2
 
+{-
+line.function("perpendicular", point, line) { a, l ->
+    Line(l.coef * Complex.I, -(a.conj() * l.coef * Complex.I).re * 2)
+},
+-}
 
+perpendicular :: Point -> Line -> Line
+perpendicular a l = Line (coef l * i) (- (re (conj a * coef l * i) * 2))
 
 rndPointOnLine :: Line -> Rand Point
 rndPointOnLine l = do
@@ -184,7 +192,23 @@ functions = Map.fromList
         [ rndPointOnLine $ line a $ (b + c) / 2
         , rndPointOnLine $ line b $ (a + c) / 2
         , rndPointOnLine $ line c $ (a + b) / 2
-        , pure $ (a + b + c) / 3
+        , return $ (a + b + c) / 3
+        ]
+    ), (
+        "CircleWithCenterThroughPoint",
+        mkBuilder $ \a b ->
+        [ circle a <$> rndPoint
+        , (\p -> circle p a) <$> rndPoint
+        , return $ circle a b
+        ]
+    ), (
+        "CircleWithDiameter",
+        mkBuilder $ \a b ->
+        [ (\c -> circle c a) <$> rndPointOnLine (line a b)
+        , (\c -> circle c b) <$> rndPointOnLine (line b a)
+        , circle ((a + b) / 2) <$> rndPoint
+        , (\c -> circle c a) <$> rndPointOnLine (midline a b)
+        , return $ circle ((a + b) / 2) b
         ]
     ), (
         "Circumcenter", mkBuilder $ \a b c -> 
@@ -194,6 +218,15 @@ functions = Map.fromList
         , return $ circumcenter a b c
         ]
     ), (
+        "Circumcircle",
+        mkBuilder $ \a b c ->
+        [ circle (circumcenter a b c) <$> rndPoint
+        , (\center -> circle center a) <$> rndPointOnLine (midline a b)
+        , (\center -> circle center b) <$> rndPointOnLine (midline b c)
+        , (\center -> circle center c) <$> rndPointOnLine (midline a c)
+        , return $ circle (circumcenter a b c) a
+        ]
+    ), (
         "Excenter", mkBuilder $ \b a c ->
         [ rndPointOnLine $ exbisector a b c
         , rndPointOnLine $ bisector a c b
@@ -201,11 +234,42 @@ functions = Map.fromList
         , return $ excenter a b c
         ]
     ), (
+        "Excircle", -- TODO find correct generalization
+        mkBuilder $ \b a c ->
+        [ return $ circle (excenter a b c) a
+        ] :: [Rand Circle]
+    ), (
+        "ExternalAngleBisector", -- TODO find correct generalization
+        mkBuilder $ \a b c ->
+        [ return $ exbisector b a c] :: [Rand Line]
+    ), (
         "Incenter", mkBuilder $ \a b c ->
         [ rndPointOnLine $ bisector a b c
         , rndPointOnLine $ bisector b a c
         , rndPointOnLine $ bisector a c b
         , rndPoint, return $ incenter a b c
+        ]
+    ), (
+        "Incircle", -- TODO find correct generalization
+        mkBuilder $ \a b c ->
+        [ return $ circle (incenter a b c) a] :: [Rand Circle]
+    ), (
+        "InternalAngleBisector", -- TODO find correct generalization
+        mkBuilder $ \a b c ->
+        [ return $ bisector b a c] :: [Rand Line]
+    ), (
+        "IntersectionOfLineAndLineFromPoints",
+        mkBuilder $ \l a b ->
+        [ rndPointOnLine l
+        , rndPointOnLine $ line a b
+        , return $ intersect l (line a b)
+        ]
+    ), (
+        "IntersectionOfLines",
+        mkBuilder $ \l1 l2 ->
+        [ rndPointOnLine l1
+        , rndPointOnLine l2
+        , return $ intersect l1 l2
         ]
     ), (
         "IntersectionOfLinesFromPoints", mkBuilder $ \a b c d ->
@@ -222,20 +286,53 @@ functions = Map.fromList
             , return $ symmetry a m
             ]
     ), (
+        "LineFromPoints",
+        mkBuilder $ \a b ->
+        [ line a <$> rndPoint
+        , line b <$> rndPoint
+        , return $ line a b
+        ]
+    ), (
+        "LineThroughCircumcenter",
+        mkBuilder $ \a b c ->
+        [ line a <$> rndPoint
+        , line (circumcenter a b c) <$> rndPoint
+        , return $ line (circumcenter a b c) a
+        ]
+    ), (
+        "Median",
+        mkBuilder $ \a b c ->
+        [ line a <$> rndPoint
+        , line ((b + c) / 2) <$> rndPoint
+        , return $ line a ((b + c) / 2)
+        ]
+    ), (
+        "Midline", mkBuilder $ \a b c ->
+        [ line ((a + b) / 2) <$> rndPoint
+        , line ((a + c) / 2) <$> rndPoint
+        , (parallel <$> rndPoint) <&> ($ line b c)
+        , return $ line ((a + b) / 2) ((a + c) / 2) ] :: [Rand Line]
+    ), (
         "Midpoint", mkBuilder $ \a b -> 
         [ rndPointOnLine $ line a b
         , return $ (a + b) / 2
         ]
     ), (
         "MidpointOfArc", mkBuilder $ \a b c -> 
-        [ rndPointOnCircle $ circumcircle a b c
+        [ rndPointOnLine $ exbisector c a b
+        , rndPointOnCircle $ circumcircle a b c
         , return $ cintersect a (exbisector c a b) (circumcircle a b c)
         ]
     ), (
         "MidpointOfOppositeArc", mkBuilder $ \a b c ->
-        [ rndPointOnCircle $ circumcircle a b c
+        [ rndPointOnLine $ bisector c a b
+        , rndPointOnCircle $ circumcircle a b c
         , return $ cintersect a (bisector c a b) (circumcircle a b c)
         ]
+    ), (
+        "NinePointCircle",
+        mkBuilder $ \a b c ->
+        [ return $ circumcircle ((a + b) / 2) ((b + c) / 2) ((c + a) / 2) ] :: [Rand Circle]
     ), (
         "OppositePointOnCircumcircle", mkBuilder $ \a b c ->
         [ rndPointOnCircle $ circumcircle a b c
@@ -249,12 +346,54 @@ functions = Map.fromList
         , return $ orthocenter a b c
         ]
     ), (
+        "ParallelLine",
+        mkBuilder $ \a l ->
+        [ line a <$> rndPoint
+        , (parallel <$> rndPoint) <&> ($ l)
+        , return $ parallel a l
+        ]
+    ), (
+        "ParallelLineToLineFromPoints",
+        mkBuilder $ \a b c ->
+        let l = line b c
+        in  [ line a <$> rndPoint
+            , (parallel <$> rndPoint) <&> ($ l)
+            , return $ parallel a l
+            ]
+    ), (
         "ParallelogramPoint", mkBuilder $ \a b c ->
         [ rndPointOnLine $ line a $ (b + c) / 2
         , rndPointOnLine $ parallel b (line a c)
         , rndPointOnLine $ parallel c (line a b)
         , return $ b + c - a
         ]
+    ), (
+        "PerpendicularBisector",
+        mkBuilder $ \a b ->
+        [ line ((a + b) / 2) <$> rndPoint
+        , (perpendicular <$> rndPoint) <&> ($ line a b)
+        , return $ perpendicular ((a + b) / 2) (line a b)
+        ]
+    ), (
+        "PerpendicularLineAtPointOfLine",
+        mkBuilder $ \a b ->
+        [ (perpendicular <$> rndPoint) <&> ($ line a b)
+        , line a <$> rndPoint
+        , return $ perpendicular a (line a b) 
+        ]
+    ), (
+        "PerpendicularLineToLineFromPoints",
+        mkBuilder $ \a b c ->
+        [ (perpendicular <$> rndPoint) <&> ($ line b c)
+        , line a <$> rndPoint
+        , return $ perpendicular a (line b c)
+        ]
+    ), (
+        "PerpendicularProjection",
+        mkBuilder $ \a l ->
+        [ rndPointOnLine l
+        , rndPointOnLine $ line a $ project a l
+        , return $ (a - (conj a * coef l +. free l) / (conj $ coef l)) / 2]
     ), (
         "PerpendicularProjectionOnLineFromPoints", mkBuilder $ \a b c ->
         let l = line b c
@@ -267,6 +406,10 @@ functions = Map.fromList
         [ rndPointOnLine $ line a b
         , return $ 2 * b - a
         ]
+    ), (
+        "ReflectionInLine",
+        mkBuilder $ \a l ->
+        [ return $ 2 * project a l - a ] :: [Rand Point]
     ), (
         "ReflectionInLineFromPoints", mkBuilder $ \a b c -> 
         [ rndPointOnLine $ line a $ project a $ line b c
@@ -284,6 +427,10 @@ functions = Map.fromList
         , rndPointOnCircle $ circumcircle a d e
         , return $ ccintersect a (circumcircle a b c) (circumcircle a d e)
         ]
+    ), (
+        "TangentLine",
+        mkBuilder $ \a b c ->
+        [ return $ perpendicular a $ line a (circumcenter a b c) ] :: [Rand Line]
     )
     ]
 
@@ -350,7 +497,7 @@ rightTriangle :: [String] -> [Command]
 rightTriangle [a, b, c] = 
     [ constPointCmd a 0
     , constPointCmd b (50.*i)
-    , Command c [] (const $ [toShape <$> (:+0) <$> random 10 100])
+    , Command c [] (const $ (toShape <$>) <$> [rndPoint, (:+0) <$> random 10 100])
     ]
 
 cyclicQuadrilateral :: [String] -> [Command]
