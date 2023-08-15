@@ -17,21 +17,23 @@ import Control.Monad (replicateM_)
 
 type Parser = Parsec String ()
 
+goodSymbol :: Parser Char
+goodSymbol = letter <|> digit
 
 name :: Parser String
-name = skipMany (char '{' <|> char '[') `between` skipMany (char '}' <|> char ']') $ many1 letter
+name = skipMany (char '{' <|> char '[') `between` skipMany (char '}' <|> char ']') $ many1 goodSymbol
 
 csvPts :: Parser [String]
 csvPts = name `sepBy1` string ", "
 
 name' :: Parser String
-name' = skipMany (char '{' <|> char '[' <|> char '(') `between` skipMany (char '}' <|> char ']' <|> char ')') $ many1 letter
+name' = skipMany (char '{' <|> char '[' <|> char '(') `between` skipMany (char '}' <|> char ']' <|> char ')') $ many1 goodSymbol
 
 csvPts' :: Parser [String]
 csvPts' = name' `sepBy1` string ", "
 
 name'' :: Parser String
-name'' = many1 letter
+name'' = many1 goodSymbol
 
 csvPts'' :: Parser [String]
 csvPts'' = name'' `sepBy1` string ", "
@@ -65,7 +67,7 @@ toArgs (MkCircle s) = s
 
 conclObj :: Parser ConclusionParseObj
 conclObj = do
-    objName <- many1 letter
+    objName <- many1 goodSymbol
     pure $ Obj objName
 
 conclLine :: Parser ConclusionParseObj

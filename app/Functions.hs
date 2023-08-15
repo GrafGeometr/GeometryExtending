@@ -8,7 +8,6 @@ import Data.Complex
 import RandomGen
 import Types
 import qualified Data.Map as Map
-import Debug.Trace (trace)
 import Data.Functor ((<&>))
 
 
@@ -228,20 +227,32 @@ functions = Map.fromList
         ]
     ), (
         "Excenter", mkBuilder $ \b a c ->
-        [ rndPointOnLine $ exbisector a b c
-        , rndPointOnLine $ bisector a c b
-        , rndPointOnLine $ bisector b a c
+        [ rndPointOnLine $ bisector a b c
+        , rndPointOnLine $ exbisector a c b
+        , rndPointOnLine $ exbisector b a c
         , return $ excenter a b c
         ]
     ), (
-        "Excircle", -- TODO find correct generalization
+        "Excircle",
         mkBuilder $ \b a c ->
-        [ return $ circle (excenter a b c) a
-        ] :: [Rand Circle]
+        [ do
+            p <- rndPointOnLine $ bisector a b c
+            return $ circle p (project p $ line b c)
+        , do
+            p <- rndPointOnLine $ exbisector a c b
+            return $ circle p (project p $ line a c)
+        , do
+            p <- rndPointOnLine $ exbisector b a c
+            return $ circle p (project p $ line b a)
+        , return $ 
+            let i_b = excenter a b c
+            in  circle i_b (project i_b $ line a c)
+        ]
     ), (
-        "ExternalAngleBisector", -- TODO find correct generalization
+        "ExternalAngleBisector",
         mkBuilder $ \a b c ->
-        [ return $ exbisector b a c] :: [Rand Line]
+        [ line a <$> rndPoint
+        , return $ exbisector b a c] :: [Rand Line]
     ), (
         "Incenter", mkBuilder $ \a b c ->
         [ rndPointOnLine $ bisector a b c
@@ -250,13 +261,27 @@ functions = Map.fromList
         , rndPoint, return $ incenter a b c
         ]
     ), (
-        "Incircle", -- TODO find correct generalization
+        "Incircle",
         mkBuilder $ \a b c ->
-        [ return $ circle (incenter a b c) a] :: [Rand Circle]
+        [ do
+            p <- rndPointOnLine $ bisector a b c
+            return $ circle p (project p $ line a b) 
+        , do
+            p <- rndPointOnLine $ bisector b a c
+            return $ circle p (project p $ line b a)
+        , do
+            p <- rndPointOnLine $ bisector a c b
+            return $ circle p (project p $ line a c)
+        , return $
+            let inc = incenter a b c
+            in  circle inc (project inc $ line a b)
+        ]
     ), (
-        "InternalAngleBisector", -- TODO find correct generalization
+        "InternalAngleBisector",
         mkBuilder $ \a b c ->
-        [ return $ bisector b a c] :: [Rand Line]
+        [ line a <$> rndPoint
+        , return $ bisector b a c
+        ]
     ), (
         "IntersectionOfLineAndLineFromPoints",
         mkBuilder $ \l a b ->
@@ -465,7 +490,7 @@ factCheckers = Map.fromList
     ), (
         "EqualLineSegments", mkChecker $ \a b c d -> checkEq (norm $ b - a) (norm $ d - c)
     ), (
-        "LineTangentToCircle", mkChecker $ \l cs ->
+        "LineTangentToCircle", mkChecker $ \cs l ->
         let p = center cs `project` l
         in  checkEq (norm $ p - center cs) (radiusSqr cs)
     ), (
@@ -473,7 +498,7 @@ factCheckers = Map.fromList
         let r1sq = radiusSqr c1
             r2sq = radiusSqr c2
             ds = norm $ center c1 - center c2
-        in  checkEq (sqrt r1sq + sqrt r2sq) ds
+        in  checkEq (sqrt r1sq + sqrt r2sq) ds || checkEq (sqrt r1sq - sqrt r2sq) ds
     ), (
         "ParallelLines", mkChecker $ \l1 l2 -> checkReal $ coef l1 / coef l2
     ), (
