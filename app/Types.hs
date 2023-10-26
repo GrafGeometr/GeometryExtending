@@ -1,18 +1,47 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# LANGUAGE DataKinds #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 module Types where
 
-import Data.Complex
 import RandomGen
+import Data.Modular
+import System.Random (Random(..))
+import Data.Bifunctor (first)
+import qualified Data.Map as Map
+import Control.Applicative
 
+newtype Fin = Fin (Mod Int 10_007) deriving (Eq, Ord, Show, Enum, Bounded, Num, Fractional)
 
+instance Random Fin where
+    randomR (Fin a, Fin b) = first fromIntegral . randomR (unMod a, unMod b)
+    random = randomR (minBound, maxBound)
 
-type Point = Complex Double
+rootsTable :: Map.Map Fin Fin
+rootsTable = Map.fromList $ (\x -> (x * x, x)) <$> [0..]
+
+dsqrt :: Fin -> Rand Fin
+dsqrt = maybe empty (\x -> asum $ fmap pure [x, -x]) . (rootsTable Map.!?)
+
+infixl 6 :+
+data Complex a = a :+ a deriving (Eq, Show)
+
+instance Num a => Num (Complex a) where
+    fromInteger x = fromInteger x :+ 0
+    (a :+ b) + (c :+ d) = (a + c) :+ (b + d)
+    (a :+ b) * (c :+ d) = (a * c - b * d) :+ (a * d + b * c)
+    negate (a :+ b) = negate a :+ negate b
+
+instance Fractional a => Fractional (Complex a) where
+    fromRational x = fromRational x :+ 0
+    recip (a :+ b) = let n = a * a + b * b in (a / n) :+ (- b / n)
+
+type Point = Complex Fin
 
 
 -- ~coef * z + coef * ~z + free = 0
-data Line = Line { coef :: Complex Double, free :: Double} deriving Show
+data Line = Line { coef :: Complex Fin, free :: Fin} deriving Show
 
-data Circle = Circle { center :: Point, radiusSqr :: Double} deriving Show
+data Circle = Circle { center :: Point, radiusSqr :: Fin} deriving Show
 
 data Shape = PointShape Point | LineShape Line | CircleShape Circle deriving Show
 

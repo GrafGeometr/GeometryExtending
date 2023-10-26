@@ -4,7 +4,8 @@ import Types
 import RandomGen
 
 import qualified Data.Map as Map
-import Control.Monad (replicateM)
+import System.Random (StdGen)
+import Control.Monad.State
 
 
 getShps :: Map.Map String Shape -> [String] -> [Shape]
@@ -24,5 +25,10 @@ check m (Command r x f : xs) c = do
     y <- check (Map.insert r (last ps) m) xs c
     return $ and ys && y
 
-check10 :: [Command] -> Conclusion -> Rand Bool
-check10 xs c = (>=2) . length . filter id <$> replicateM 10 (check Map.empty xs c)
+check10 :: [Command] -> Conclusion -> StdGen -> Bool
+check10 xs c = evalState $ go 10 where
+    go (0 :: Int) = pure False
+    go n = runRand (check mempty xs c) >>= \ys ->
+        if null ys then go n
+        else if and ys then pure True
+        else go (n-1)

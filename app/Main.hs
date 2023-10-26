@@ -2,14 +2,15 @@ module Main where
 
 import Parser (parseTheorem)
 import System.Environment (getArgs)
-import RandomGen (runRand)
 import Extending
 import System.Directory (renameFile, listDirectory)
 import Data.List (isPrefixOf, isSuffixOf)
 import Control.Monad (forM_, unless)
+import System.Random (newStdGen)
 
 main :: IO ()
 main = do
+    gen <- newStdGen
     [dir] <- getArgs
     filesWithBad <- listDirectory dir
     forM_ (filter (\s -> "BAD_" `isPrefixOf` s) filesWithBad) $ \file ->
@@ -21,6 +22,5 @@ main = do
         putStrLn $ "   !Started: " <> file
         case parseTheorem file $ unlines . fmap tail . filter ("!" `isPrefixOf`) . lines $ s of
             Left err -> print err
-            Right (cs, cc) -> do
-                res <- runRand $ check10 cs cc
-                unless res $ renameFile arg (dir <> "BAD_" <> file)
+            Right (cs, cc) -> unless (check10 cs cc gen) $
+                renameFile arg (dir <> "BAD_" <> file)
