@@ -1,7 +1,4 @@
-{-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-
 module Types where
 
 import Data.Complex
@@ -45,8 +42,8 @@ class Builder f where
 
 instance IsShape a => Builder [Rand a] where
     mkBuilder :: IsShape a => [Rand a] -> [Shape] -> [Rand Shape]
-    mkBuilder randList _ = fmap (>>= (\x -> pure $ toShape x)) randList
-    
+    mkBuilder randList _ = fmap (>>= pure . toShape) randList
+
 
 instance (IsShape a, Builder f) => Builder (a -> f) where
     mkBuilder :: (IsShape a, Builder f) => (a -> f) -> [Shape] -> [Rand Shape]
