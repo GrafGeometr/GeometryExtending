@@ -476,7 +476,7 @@ factCheckers = Map.fromList
         let r1sq = radiusSqr c1
             r2sq = radiusSqr c2
             ds = norm $ center c1 - center c2
-        in  checkEq (sqrt r1sq + sqrt r2sq) ds || checkEq (sqrt r1sq - sqrt r2sq) ds
+        in  4*r1sq*r2sq == (ds - r1sq - r2sq) ^ (2 :: Int)
     ), (
         "ParallelLines", mkChecker $ \l1 l2 -> checkReal $ coef l1 / coef l2
     ), (
