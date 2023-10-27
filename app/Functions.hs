@@ -2,11 +2,12 @@
 module Functions where
 
 
-import Data.Complex
+import Data.Complex.Generic (Complex(..), magnitude)
 
 import RandomGen
 import Types
 import qualified Data.Map as Map
+import Data.Real.Constructible (Construct)
 
 
 
@@ -20,46 +21,43 @@ rndPoint = do
 i :: Point
 i = 0 :+ 1
 
-re :: Point -> Double
+re :: Point -> Construct
 re (x :+ _) = x
 
-im :: Point -> Double
+im :: Point -> Construct
 im (_ :+ y) = y
-
-arg :: Point -> Double
-arg (x :+ y) = atan2 y x
 
 conj :: Point -> Point
 conj (x :+ y) = x :+ (-y)
 
-norm :: Point -> Double
+norm :: Point -> Construct
 norm (x :+ y) = x * x + y * y
 
 infixl 6 .+, +., .-, -.
 infixl 7 .*, *., ./, /.
 
-(.*) :: Double -> Point -> Point
+(.*) :: Construct -> Point -> Point
 a .* b = (a :+ 0) * b
 
-(*.) :: Point -> Double -> Point
+(*.) :: Point -> Construct -> Point
 a *. b = a * (b :+ 0)
 
-(.+) :: Double -> Point -> Point
+(.+) :: Construct -> Point -> Point
 a .+ b = (a :+ 0) + b
 
-(+.) :: Point -> Double -> Point
+(+.) :: Point -> Construct -> Point
 a +. b = a + (b :+ 0)
 
-(.-) :: Double -> Point -> Point
+(.-) :: Construct -> Point -> Point
 a .- b = (a :+ 0) - b
 
-(-.) :: Point -> Double -> Point
+(-.) :: Point -> Construct -> Point
 a -. b = a - (b :+ 0)
 
-(./) :: Double -> Point -> Point
+(./) :: Construct -> Point -> Point
 a ./ b = (a :+ 0) / b
 
-(/.) :: Point -> Double -> Point
+(/.) :: Point -> Construct -> Point
 a /. b = a / (b :+ 0)
 
 
@@ -144,25 +142,11 @@ circumcenter a b c = ((b - c) *. norm a + (c - a) *. norm b + (a - b) *. norm c)
 circumcircle :: Point -> Point -> Point -> Circle
 circumcircle a b c = circle (circumcenter a b c) a
 
-
-data Angle = Angle {vertex :: Point, from :: Double, to :: Double}
-
-angle :: Point -> Point -> Point -> Angle
-angle a b c = Angle b (arg (a - b)) $ arg (c - b)
-
-
-
 bisector :: Point -> Point -> Point -> Line
-bisector a b c =
-    let an = angle a b c
-        it = exp $ ((to an + from an + pi) * 0.5) .* i
-    in  Line it $ re (-(vertex an * conj it)) * 2
+bisector a b c = midline a (b + signum (c - b) *. magnitude (a - b))
 
 exbisector :: Point -> Point -> Point -> Line
-exbisector a b c =
-    let an = angle a b c
-        it = exp $ ((to an + from an) * 0.5) .* i
-    in  Line it $ re (-(vertex an * conj it)) * 2
+exbisector a b c = midline a (b - signum (c - b) *. magnitude (a - b))
 
 excenter :: Point -> Point -> Point -> Point
 excenter a b c =
@@ -456,20 +440,18 @@ functions = Map.fromList
     )
     ]
 
-eps :: Double
-eps = 0.01
 
-checkEq :: Double -> Double -> Bool
-checkEq x y = max (abs $ x / y) (abs $ y / x) < 1 + eps
+checkEq :: Construct -> Construct -> Bool
+checkEq x y = x == y
 
 checkReal :: Point -> Bool
-checkReal x = abs (im x) < eps || abs (im x) < eps * abs (re x)
+checkReal x = im x == 0
 
 checkImagine :: Point -> Bool
-checkImagine x = abs (re x) < eps || abs (re x) < eps * abs (im x)
+checkImagine x = re x == 0
 
 checkEqPts :: Point -> Point -> Bool
-checkEqPts a b = checkEq (re a) (re b) && checkEq (im a) (im b)
+checkEqPts a b = a == b
 
 
 factCheckers :: Map.Map String ([Shape] -> Bool)
