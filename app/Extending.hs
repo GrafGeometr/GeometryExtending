@@ -25,4 +25,4 @@ check m (Command r x f : xs) c = do
     return $ and ys && y
 
 check10 :: [Command] -> Conclusion -> Rand Bool
-check10 xs c = not . or <$> replicateM 10 (check Map.empty xs c)
+check10 xs c = or <$> replicateM 10 (check Map.empty xs c)

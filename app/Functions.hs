@@ -271,7 +271,7 @@ functions = Map.fromList
         ]
     ),  (
         "RadiusLine", mkBuilder $ \a b c ->
-        [ (line a) <$> rndPoint
+        [ line a <$> rndPoint
         , return $ line a (circumcenter a b c)
         ]
     ),  (
@@ -300,7 +300,7 @@ functions = Map.fromList
         ]
     ),  (
         "Symedian", mkBuilder $ \a b c ->
-        [ (line a) <$> rndPoint
+        [ line a <$> rndPoint
         , return $ symedian b a c
         ]  
     ),  (
