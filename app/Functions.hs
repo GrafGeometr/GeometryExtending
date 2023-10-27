@@ -148,6 +148,12 @@ bisector a b c = midline a (b + signum (c - b) *. magnitude (a - b))
 exbisector :: Point -> Point -> Point -> Line
 exbisector a b c = midline a (b - signum (c - b) *. magnitude (a - b))
 
+symedian :: Point -> Point -> Point -> Line
+symedian a b c =
+    let m = (a + c) / 2
+        m' = inversion m (circumcircle a b c)
+     in line a m'
+
 excenter :: Point -> Point -> Point -> Point
 excenter a b c =
     let sa = sqrt (b - c)
@@ -166,23 +172,176 @@ orthocenter :: Point -> Point -> Point -> Point
 orthocenter a b c = ((b - a) *. norm c + (c - b) *. norm a + (a - c) *. norm b + (a * a - b * b) * conj c + (b * b - c * c) * conj a + (c * c - a * a) * conj b) /
             ((b - c) * conj a + (c - a) * conj b + (a - b) * conj c)
 
+inversion :: Point -> Circle -> Point
+inversion p c =
+    let v = p - center c
+        n = v *. (radiusSqr c / norm v)
+    in  n + center c
+
+divide :: Point -> Point -> Point -> Point
+divide alpha begin end = begin * (1 .- alpha) + end * alpha
+
 functions :: Map.Map String ([Shape] -> [Rand Shape])
-functions = Map.fromList
-    [  (
-        "Centroid", mkBuilder $ \a b c ->
+functions = Map.fromList 
+    [   (
+        "Gergonne", mkBuilder $ \a b c ->
+        [ rndPoint
+        , return $ 
+            let la = (sqrt . norm) $ b - c
+                lb = (sqrt . norm) $ a - c
+                lc = (sqrt . norm) $ a - b
+                pa = (lb + lc - la) / 2
+                pb = (lc + la - lb) / 2
+             in intersect (line a (divide (pb / la :+ 0) b c)) (line b (divide (pa / lb :+ 0) a c)) 
+        ] :: [Rand Point]  
+    ),  (
+        "Nagel", mkBuilder $ \a b c ->
+        [ rndPoint
+        , return $ 
+            let la = (sqrt . norm) $ b - c
+                lb = (sqrt . norm) $ a - c
+                lc = (sqrt . norm) $ a - b
+                pa = (lb + lc - la) / 2
+                pb = (lc + la - lb) / 2
+             in intersect (line a (divide (pb / la :+ 0) c b)) (line b (divide (pa / lb :+ 0) c a)) 
+        ] :: [Rand Point]
+            
+    ),  (
+        "Lemoine", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ symedian a b c
+        , rndPointOnLine $ symedian b a c
+        , rndPointOnLine $ symedian a c b
+        , return $ intersect (symedian a b c) (symedian b a c)
+        ]
+    ),  (
+        "Antigonal", mkBuilder $ \p a b c ->
+        [ rndPoint
+        , return $
+            let pa = symmetry p $ line b c
+                pb = symmetry p $ line a c
+                ca = circumcircle pa b c
+                cb = circumcircle pb a c
+             in ccintersect c ca cb
+        ]
+    ),  (
+        "Isotomic", mkBuilder $ \p a b c ->
+        [ rndPoint
+        , return $ 
+            let pa = intersect (line a p) (line b c)
+                pb = intersect (line b p) (line a c)
+                pa' = b + c - pa
+                pb' = a + c - pb
+                la = line a pa'
+                lb = line b pb'
+             in intersect la lb 
+        ]
+    ),  (
+        "Isogonal", mkBuilder $ \p a b c ->
+        [ rndPoint 
+        , return $ intersect (line a (symmetry p $ bisector b a c)) (line b (symmetry p $ bisector a b c)) :: Rand Point
+        ] 
+    ),  (
+        "TangentLinesIntersection", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ perpendicular ((b + c) /2) (line b c)
+        , return $ inversion ((b + c) / 2) $ circumcircle a b c
+        ]
+    ),  (
+        "DumtyPoint", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ symedian b a c
+        , rndPointOnCircle $ circumcircle (circumcenter a b c) b c
+        , return $ project (circumcenter a b c) $ symedian b a c
+        ]
+    ),  (
+        "HumptyPoint", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ line a ((b + c) / 2)
+        , rndPointOnCircle $ circumcircle (orthocenter a b c) b c
+        , return $ project (orthocenter a b c) $ line a ((b + c) / 2) :: Rand Point
+        ]
+    ),  (
+        "RadiusLineMiddle", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ line a (circumcenter a b c)
+        , rndPointOnLine $ line ((a + b) / 2) ((a + c) / 2)
+        , return $ (a + intersect (line a (circumcenter a b c)) (line b c)) / 2
+        ]
+    ),  (
+        "RadiusLineEnd", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ line a (circumcenter a b c)
+        , rndPointOnLine $ line b c
+        , return $ intersect (line a (circumcenter a b c)) (line b c)
+        ]
+    ),  (
+        "RadiusLine", mkBuilder $ \a b c ->
+        [ (line a) <$> rndPoint
+        , return $ line a (circumcenter a b c)
+        ]
+    ),  (
+        "ExternalBisectorMiddle", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ exbisector b a c
+        , rndPointOnLine $ line ((a + b) / 2) ((a + c) / 2)
+        , return $ (a + intersect (exbisector b a c) (line b c)) / 2
+        ]
+    ),  (
+        "ExternalBisectorEnd", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ exbisector b a c
+        , rndPointOnLine $ line b c
+        , return $ intersect (exbisector b a c) (line b c)
+        ]
+    ),  (
+        "SymedianMiddle", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ symedian b a c
+        , rndPointOnLine $ line ((a + b) / 2) ((a + c) / 2)
+        , return $ (a + intersect (symedian b a c) (line b c)) / 2
+        ]
+    ),  (
+        "SymedianEnd", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ symedian b a c
+        , rndPointOnLine $ line b c
+        , return $ intersect (symedian b a c) (line b c)
+        ]
+    ),  (
+        "Symedian", mkBuilder $ \a b c ->
+        [ (line a) <$> rndPoint
+        , return $ symedian b a c
+        ]  
+    ),  (
+        "MedianMiddle", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ line a $ (b + c) / 2
+        , rndPointOnLine $ line b c
+        , return $ (a + (b + c) / 2) / 2
+        ] 
+    ),  (
+        "HeightMiddle", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ perpendicular a (line b c)
+        , rndPointOnLine $ line b c
+        , return $ intersect (perpendicular a (line b c)) (line b c)
+        ]
+    ),  (
+        "BisectorEnd", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ bisector a b c
+        , rndPointOnLine $ line b c
+        , return $ intersect (bisector a b c) (line b c)
+        ]
+    ),  (
+        "BisectorMiddle", mkBuilder $ \a b c ->
+        [ rndPointOnLine $ bisector a b c
+        , rndPointOnLine $ line ((a + b) / 2) ((a + c) / 2) 
+        , return $ (a + intersect (bisector a b c) (line a b)) / 2 :: Rand Point
+        ]
+    ),  (
+        "Centroid", mkBuilder $ \a b c -> 
         [ rndPointOnLine $ line a $ (b + c) / 2
         , rndPointOnLine $ line b $ (a + c) / 2
         , rndPointOnLine $ line c $ (a + b) / 2
         , return $ (a + b + c) / 3
         ]
-    ), (
+    ),  (
         "CircleWithCenterThroughPoint",
         mkBuilder $ \a b ->
         [ circle a <$> rndPoint
         , (`circle` a) <$> rndPoint
         , return $ circle a b
         ]
-    ), (
+    ),  (
         "CircleWithDiameter",
         mkBuilder $ \a b ->
         [ (`circle` a) <$> rndPointOnLine (line a b)
@@ -191,14 +350,14 @@ functions = Map.fromList
         , (`circle` a) <$> rndPointOnLine (midline a b)
         , return $ circle ((a + b) / 2) b
         ]
-    ), (
-        "Circumcenter", mkBuilder $ \a b c ->
+    ),  (
+        "Circumcenter", mkBuilder $ \a b c -> 
         [ rndPointOnLine $ midline a b
         , rndPointOnLine $ midline b c
         , rndPointOnLine $ midline a c
         , return $ circumcenter a b c
         ]
-    ), (
+    ),  (
         "Circumcircle",
         mkBuilder $ \a b c ->
         [ circle (circumcenter a b c) <$> rndPoint
@@ -207,14 +366,14 @@ functions = Map.fromList
         , (`circle` c) <$> rndPointOnLine (midline a c)
         , return $ circle (circumcenter a b c) a
         ]
-    ), (
+    ),  (
         "Excenter", mkBuilder $ \b a c ->
         [ rndPointOnLine $ bisector a b c
         , rndPointOnLine $ exbisector a c b
         , rndPointOnLine $ exbisector b a c
         , return $ excenter a b c
         ]
-    ), (
+    ),  (
         "Excircle",
         mkBuilder $ \b a c ->
         [ do
@@ -230,19 +389,18 @@ functions = Map.fromList
             let i_b = excenter a b c
             in  circle i_b (project i_b $ line a c)
         ]
-    ), (
-        "ExternalAngleBisector",
-        mkBuilder $ \a b c ->
+    ),  (
+        "ExternalAngleBisector", mkBuilder $ \a b c ->
         [ line a <$> rndPoint
         , return $ exbisector b a c] :: [Rand Line]
-    ), (
+    ),  (
         "Incenter", mkBuilder $ \a b c ->
         [ rndPointOnLine $ bisector a b c
         , rndPointOnLine $ bisector b a c
         , rndPointOnLine $ bisector a c b
         , rndPoint, return $ incenter a b c
         ]
-    ), (
+    ),  (
         "Incircle",
         mkBuilder $ \a b c ->
         [ do
@@ -258,27 +416,27 @@ functions = Map.fromList
             let inc = incenter a b c
             in  circle inc (project inc $ line a b)
         ]
-    ), (
+    ),  (
         "InternalAngleBisector",
         mkBuilder $ \a b c ->
         [ line a <$> rndPoint
         , return $ bisector b a c
         ]
-    ), (
+    ),  (
         "IntersectionOfLineAndLineFromPoints",
         mkBuilder $ \l a b ->
         [ rndPointOnLine l
         , rndPointOnLine $ line a b
         , return $ intersect l (line a b)
         ]
-    ), (
+    ),  (
         "IntersectionOfLines",
         mkBuilder $ \l1 l2 ->
         [ rndPointOnLine l1
         , rndPointOnLine l2
         , return $ intersect l1 l2
         ]
-    ), (
+    ),  (
         "IntersectionOfLinesFromPoints", mkBuilder $ \a b c d ->
         let l1 = line a b
             l2 = line c d
@@ -286,137 +444,137 @@ functions = Map.fromList
             , rndPointOnLine l2
             , return $ intersect l1 l2
             ]
-    ), (
+    ),  (
         "IsoscelesTrapezoidPoint", mkBuilder $ \a b c ->
         let m  = midline c b
         in  [ rndPointOnLine $ parallel a (line b c)
             , return $ symmetry a m
             ]
-    ), (
+    ),  (
         "LineFromPoints",
         mkBuilder $ \a b ->
         [ line a <$> rndPoint
         , line b <$> rndPoint
         , return $ line a b
         ]
-    ), (
+    ),  (
         "LineThroughCircumcenter",
         mkBuilder $ \a b c ->
         [ line a <$> rndPoint
         , line (circumcenter a b c) <$> rndPoint
         , return $ line (circumcenter a b c) a
         ]
-    ), (
+    ),  (
         "Median",
         mkBuilder $ \a b c ->
         [ line a <$> rndPoint
         , line ((b + c) / 2) <$> rndPoint
         , return $ line a ((b + c) / 2)
         ]
-    ), (
+    ),  (
         "Midline", mkBuilder $ \a b c ->
         [ line ((a + b) / 2) <$> rndPoint
         , line ((a + c) / 2) <$> rndPoint
         , (`parallel` line b c) <$> rndPoint
         , return $ line ((a + b) / 2) ((a + c) / 2) ] :: [Rand Line]
-    ), (
-        "Midpoint", mkBuilder $ \a b ->
+    ),  (
+        "Midpoint", mkBuilder $ \a b -> 
         [ rndPointOnLine $ line a b
         , return $ (a + b) / 2
         ]
-    ), (
-        "MidpointOfArc", mkBuilder $ \a b c ->
+    ),  (
+        "MidpointOfArc", mkBuilder $ \a b c -> 
         [ rndPointOnLine $ exbisector c a b
         , rndPointOnCircle $ circumcircle a b c
         , return $ cintersect a (exbisector c a b) (circumcircle a b c)
         ]
-    ), (
+    ),  (
         "MidpointOfOppositeArc", mkBuilder $ \a b c ->
         [ rndPointOnLine $ bisector c a b
         , rndPointOnCircle $ circumcircle a b c
         , return $ cintersect a (bisector c a b) (circumcircle a b c)
         ]
-    ), (
+    ),  (
         "NinePointCircle",
         mkBuilder $ \a b c ->
         [ return $ circumcircle ((a + b) / 2) ((b + c) / 2) ((c + a) / 2) ] :: [Rand Circle]
-    ), (
+    ),  (
         "OppositePointOnCircumcircle", mkBuilder $ \a b c ->
         [ rndPointOnCircle $ circumcircle a b c
         , return $ 2 * circumcenter a b c - a
         ]
-    ), (
-        "Orthocenter", mkBuilder $ \a b c ->
+    ),  (
+        "Orthocenter", mkBuilder $ \a b c -> 
         [ rndPointOnLine $ line a $ project a $ line b c
         , rndPointOnLine $ line b $ project b $ line a c
         , rndPointOnLine $ line c $ project c $ line a b
         , return $ orthocenter a b c
         ]
-    ), (
+    ),  (
         "ParallelLine",
         mkBuilder $ \a l ->
         [ line a <$> rndPoint
         , (`parallel` l) <$> rndPoint
         , return $ parallel a l
         ]
-    ), (
+    ),  (
         "ParallelLineToLineFromPoints",
         mkBuilder $ \a b c ->
         [ line a <$> rndPoint
         , (`parallel` line b c) <$> rndPoint
         , return $ parallel a (line b c)
         ]
-    ), (
+    ),  (
         "ParallelogramPoint", mkBuilder $ \a b c ->
         [ rndPointOnLine $ line a $ (b + c) / 2
         , rndPointOnLine $ parallel b (line a c)
         , rndPointOnLine $ parallel c (line a b)
         , return $ b + c - a
         ]
-    ), (
+    ),  (
         "PerpendicularBisector",
         mkBuilder $ \a b ->
         [ line ((a + b) / 2) <$> rndPoint
         , (`perpendicular` line a b) <$> rndPoint
         , return $ perpendicular ((a + b) / 2) (line a b)
         ]
-    ), (
+    ),  (
         "PerpendicularLineAtPointOfLine",
         mkBuilder $ \a b ->
         [ (`perpendicular` line a b) <$> rndPoint
         , line a <$> rndPoint
         , return $ perpendicular a (line a b)
         ]
-    ), (
+    ),  (
         "PerpendicularLineToLineFromPoints",
         mkBuilder $ \a b c ->
         [ (`perpendicular` line b c) <$> rndPoint
         , line a <$> rndPoint
         , return $ perpendicular a (line b c)
         ]
-    ), (
+    ),  (
         "PerpendicularProjection",
         mkBuilder $ \a l ->
         [ rndPointOnLine l
         , rndPointOnLine $ line a $ project a l
         , return $ (a - (conj a * coef l +. free l) / conj (coef l)) / 2]
-    ), (
+    ),  (
         "PerpendicularProjectionOnLineFromPoints", mkBuilder $ \a b c ->
         let l = line b c
         in  [ rndPointOnLine l
             , rndPointOnLine $ line a $ project a l
             , return $ (a - (conj a * coef l +. free l) / conj (coef l)) / 2
             ]
-    ), (
+    ),  (
         "PointReflection", mkBuilder $ \a b ->
         [ rndPointOnLine $ line a b
         , return $ 2 * b - a
         ]
-    ), (
+    ),  (
         "ReflectionInLine",
         mkBuilder $ \a l ->
         [ return $ 2 * project a l - a ] :: [Rand Point]
-    ), (
+    ),  (
         "ReflectionInLineFromPoints", mkBuilder $ \a b c ->
         [ rndPointOnLine $ line a $ project a $ line b c
         , return $ symmetry a (line b c)
@@ -427,13 +585,13 @@ functions = Map.fromList
         , rndPointOnLine $ line a b
         , return $ cintersect a (line a b) (circumcircle a c d)
         ]
-    ), (
+    ),  (
         "SecondIntersectionOfTwoCircumcircles", mkBuilder $ \a b c d e ->
         [ rndPointOnCircle $ circumcircle a b c
         , rndPointOnCircle $ circumcircle a d e
         , return $ ccintersect a (circumcircle a b c) (circumcircle a d e)
         ]
-    ), (
+    ),  (
         "TangentLine",
         mkBuilder $ \a b c ->
         [ return $ perpendicular a $ line a (circumcenter a b c) ] :: [Rand Line]
