@@ -1,21 +1,19 @@
-{-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-
 module Types where
 
-import Data.Complex
+import Data.Complex.Generic
+import Data.Real.Constructible
 import RandomGen
 
 
 
-type Point = Complex Double
+type Point = Complex Construct
 
 
 -- ~coef * z + coef * ~z + free = 0
-data Line = Line { coef :: Complex Double, free :: Double} deriving Show
+data Line = Line { coef :: Complex Construct, free :: Construct} deriving Show
 
-data Circle = Circle { center :: Point, radiusSqr :: Double} deriving Show
+data Circle = Circle { center :: Point, radiusSqr :: Construct} deriving Show
 
 data Shape = PointShape Point | LineShape Line | CircleShape Circle deriving Show
 
@@ -45,8 +43,8 @@ class Builder f where
 
 instance IsShape a => Builder [Rand a] where
     mkBuilder :: IsShape a => [Rand a] -> [Shape] -> [Rand Shape]
-    mkBuilder randList _ = fmap (>>= (\x -> pure $ toShape x)) randList
-    
+    mkBuilder randList _ = fmap (>>= pure . toShape) randList
+
 
 instance (IsShape a, Builder f) => Builder (a -> f) where
     mkBuilder :: (IsShape a, Builder f) => (a -> f) -> [Shape] -> [Rand Shape]

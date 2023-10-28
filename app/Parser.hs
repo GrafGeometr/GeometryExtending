@@ -39,7 +39,7 @@ csvPts'' :: Parser [String]
 csvPts'' = name'' `sepBy1` string ", "
 
 getArgs :: Parser [String]
-getArgs = string "(" `between` string ")" $ csvPts 
+getArgs = string "(" `between` string ")" $ csvPts
 
 
 constructionParser :: Parser [Command]
@@ -96,8 +96,8 @@ conclusionParser = do
     void $ string ": "
     objects <- (conclObj <|> conclLine <|> conclCircle) `sepBy1` string ", "
 
-    let points = concat $ toArgs <$> objects
-    pure $ Conclusion points $ (factCheckers Map.! factName) . (convertFromSimple objects)
+    let points = concatMap toArgs objects
+    pure $ Conclusion points $ (factCheckers Map.! factName) . convertFromSimple objects
 
 theoremParser :: Parser ([Command], Conclusion)
 theoremParser = do
