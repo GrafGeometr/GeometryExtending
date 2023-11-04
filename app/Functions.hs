@@ -246,7 +246,7 @@ functions = Map.fromList
         , return $ inversion ((b + c) / 2) $ circumcircle a b c
         ]
     ),  (
-        "DumtyPoint", mkBuilder $ \a b c ->
+        "DumptyPoint", mkBuilder $ \a b c ->
         [ rndPointOnLine $ symedian b a c
         , rndPointOnCircle $ circumcircle (circumcenter a b c) b c
         , return $ project (circumcenter a b c) $ symedian b a c
